@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"time"
 
@@ -10,6 +9,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -44,25 +45,33 @@ func RunMigrations(lc fx.Lifecycle, p Params) {
 	})
 }
 
-func New(params Params) (*sql.DB, error) {
+func New(params Params) (*gorm.DB, error) {
 
-	db, err := sql.Open("pgx", params.Cfg.DB.DSN())
+	db, err := gorm.Open(postgres.Open(params.Cfg.DB.DSN()), &gorm.Config{})
 
 	if err != nil {
 		params.Logger.Info(err.Error())
 		return nil, err
 	}
-	db.SetMaxOpenConns(20)
-	db.SetMaxIdleConns(10)
-	db.SetConnMaxIdleTime(5 * time.Minute)
-	db.SetConnMaxLifetime(30 * time.Minute)
+
+	sqlDB, err := db.DB()
+
+	if err != nil {
+		params.Logger.Error("failed to get sql.DB from gorm", zap.Error(err))
+		return nil, err
+	}
+
+	sqlDB.SetMaxOpenConns(20)
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := db.PingContext(ctx); err != nil {
+	if err := sqlDB.PingContext(ctx); err != nil {
 		params.Logger.Error("db ping failed", zap.Error(err))
-		_ = db.Close()
+		_ = sqlDB.Close()
 		return nil, err
 	}
 

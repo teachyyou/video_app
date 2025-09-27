@@ -1,5 +1,4 @@
-FROM golang:latest AS build
-LABEL authors="kudri"
+FROM golang:1.25.1 AS build
 LABEL name="video_backend"
 
 WORKDIR /app
@@ -9,6 +8,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY ./src src/
+
+RUN go mod tidy
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o app ./src/cmd/app
 

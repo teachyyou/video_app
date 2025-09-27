@@ -23,7 +23,11 @@ func NewRouter(p RouterParams) *gin.Engine {
 
 	api := r.Group("/api")
 	api.GET("/hello", p.HelloHandler.Hello)
+
+	api.GET("/video", p.VideoHandler.GetVideos)
+	api.GET("/video/:video_uuid", p.VideoHandler.GetVideo)
 	api.POST("/video", p.VideoHandler.AddVideo)
+	api.DELETE("/video/:video_uuid", p.VideoHandler.ArchiveVideo)
 
 	return r
 }
