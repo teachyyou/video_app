@@ -48,7 +48,7 @@ func RunMigrations(lc fx.Lifecycle, p Params) {
 func New(params Params) (*gorm.DB, error) {
 
 	db, err := gorm.Open(postgres.Open(params.Cfg.DB.DSN()), &gorm.Config{})
-
+	params.Logger.Info("connected to database", zap.Any("url", params.Cfg.DB.DSN()))
 	if err != nil {
 		params.Logger.Info(err.Error())
 		return nil, err

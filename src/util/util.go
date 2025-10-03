@@ -6,6 +6,8 @@ import (
 	"errors"
 	"math/big"
 	"net/http"
+	"net/url"
+	"path"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -58,4 +60,17 @@ func HttpResponseFromError(err error) (int, map[string]any) {
 	}
 
 	return code, map[string]any{"error": err.Error()}
+}
+
+func JoinURL(base string, elems ...string) string {
+	if base == "" {
+		return "/" + path.Join(elems...)
+	}
+	u, err := url.Parse(base)
+	if err != nil {
+		return "/" + path.Join(elems...)
+	}
+	segs := append([]string{u.Path}, elems...)
+	u.Path = path.Join(segs...)
+	return u.String()
 }

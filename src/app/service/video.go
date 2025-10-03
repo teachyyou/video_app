@@ -9,9 +9,11 @@ import (
 	"database/sql"
 	"io"
 	"log"
+	"math"
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"go.uber.org/fx"
@@ -21,13 +23,15 @@ import (
 type VideoService struct {
 	Config     *config.Config
 	Repository *repository.VideoRepository
+	HlsService *ConversionService
 	log        *zap.Logger
 }
 
-func NewVideoService(repo *repository.VideoRepository, config *config.Config, log *zap.Logger) *VideoService {
+func NewVideoService(repo *repository.VideoRepository, config *config.Config, convService *ConversionService, log *zap.Logger) *VideoService {
 	return &VideoService{
 		Config:     config,
 		Repository: repo,
+		HlsService: convService,
 		log:        log,
 	}
 }
@@ -41,6 +45,11 @@ func (service *VideoService) GetAllVideos(ctx context.Context, pagination domain
 func (service *VideoService) GetVideo(ctx context.Context, id string) (*domain.Video, error) {
 	video, err := service.Repository.GetById(ctx, id)
 
+	return video, err
+}
+
+func (service *VideoService) UpdateVideoTitle(ctx context.Context, id string, title string) (*domain.Video, error) {
+	video, err := service.Repository.UpdateById(ctx, id, map[string]interface{}{"filename": title + ".mp4"})
 	return video, err
 }
 
@@ -83,15 +92,31 @@ func (service *VideoService) Save(ctx context.Context, header *multipart.FileHea
 		return "", err
 	}
 
+	duration, err := util.ProbeDuration(ctx, destPath)
+	var durationField sql.NullInt32
+
+	if err == nil {
+		seconds := int32(math.Round(duration.Seconds()))
+		durationField = sql.NullInt32{Int32: seconds, Valid: true}
+	} else {
+		service.log.Error("ffprobe for duration failed", zap.Error(err), zap.String("slug", slug))
+		return "", err
+
+	}
+
 	_, err = service.Repository.Insert(ctx, &domain.Video{
 		Filename:  header.Filename,
 		Slug:      slug,
 		SizeBytes: header.Size,
-		DurationS: sql.NullInt32{Int32: 42, Valid: true},
+		DurationS: durationField,
 	})
 	if err != nil {
 		return "", err
 	}
+
+	service.HlsService.Enqueue(slug)
+	log.Println("enqueued worker for video", zap.String("slug", slug))
+
 	return destPath, nil
 }
 
@@ -104,8 +129,14 @@ func (service *VideoService) Archive(ctx context.Context, id string) error {
 		return err
 	}
 
-	if video.ArchivedAt == nil {
+	if video.ArchivedAt != nil {
 		err := domain.ErrAlreadyArchived
+		log.Println(err.Error())
+		return err
+	}
+
+	if video.IsProcessing() {
+		err := domain.ErrVideoIsProcessing
 		log.Println(err.Error())
 		return err
 	}
@@ -123,7 +154,10 @@ func (service *VideoService) Archive(ctx context.Context, id string) error {
 	defer originalFile.Close()
 
 	//Кладем в archive/slug
-	newPath := filepath.Join(service.Config.Data.ArchiveDir, video.Slug)
+
+	ext := strings.ToLower(filepath.Ext(video.Filename))
+	newName := video.Slug + ext
+	newPath := filepath.Join(service.Config.Data.ArchiveDir, newName)
 
 	newFile, err := os.Create(newPath)
 	if err != nil {

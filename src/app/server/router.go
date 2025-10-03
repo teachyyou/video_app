@@ -14,6 +14,7 @@ type RouterParams struct {
 	Logger       *zap.Logger
 	HelloHandler *handler.HelloHandler
 	VideoHandler *handler.VideoHandler
+	MediaHandler *handler.MediaHandler
 }
 
 func NewRouter(p RouterParams) *gin.Engine {
@@ -27,7 +28,9 @@ func NewRouter(p RouterParams) *gin.Engine {
 	api.GET("/video", p.VideoHandler.GetVideos)
 	api.GET("/video/:video_uuid", p.VideoHandler.GetVideo)
 	api.POST("/video", p.VideoHandler.AddVideo)
+	api.PATCH("/video/:video_uuid", p.VideoHandler.UpdateVideo)
 	api.DELETE("/video/:video_uuid", p.VideoHandler.ArchiveVideo)
 
+	p.MediaHandler.Register(r)
 	return r
 }

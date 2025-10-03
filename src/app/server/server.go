@@ -21,8 +21,8 @@ func NewHTTPServer(p ServerParams) *http.Server {
 		Addr:              ":8080",
 		Handler:           p.Router,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 

@@ -24,18 +24,28 @@ func (db DBConfig) DSN() string {
 	)
 }
 
+type HttpConfig struct {
+	PublicMediaUrl string
+}
+
 type DataConfig struct {
 	SlugLength int
 	DataDir    string
 	ArchiveDir string
 	RawDir     string
-	TmpDir     string
-	ConvDir    string
+}
+
+type ConversionConfig struct {
+	TmpDir   string
+	ConvDir  string
+	Parallel int
 }
 
 type Config struct {
 	DB   DBConfig
+	Http HttpConfig
 	Data DataConfig
+	Conv ConversionConfig
 }
 
 func Load() *Config {
@@ -52,8 +62,14 @@ func Load() *Config {
 			DataDir:    getEnv("DATA_DIR", "/data"),
 			ArchiveDir: getEnv("ARCHIVE_DIR", "/data/archive"),
 			RawDir:     getEnv("RAW_DIR", "/data/raw"),
-			TmpDir:     getEnv("TMP_DIR", "/data/tmp/work"),
-			ConvDir:    getEnv("CONV_DIR", "/data/converted"),
+		},
+		Conv: ConversionConfig{
+			TmpDir:   getEnv("TMP_DIR", "/data/tmp/work"),
+			ConvDir:  getEnv("CONV_DIR", "/data/converted"),
+			Parallel: getEnvAsInt("PARALLEL_MAX", 4),
+		},
+		Http: HttpConfig{
+			PublicMediaUrl: getEnv("PUBLIC_MEDIA_URL", ""),
 		},
 	}
 }

@@ -8,9 +8,10 @@ import (
 )
 
 var (
-	ErrAlreadyArchived = errors.New("video is already archived")
-	ErrIncorrectUuid   = errors.New("incorrect uuid format")
-	ErrVideoNotFound   = errors.New("video is not found")
+	ErrAlreadyArchived   = errors.New("video is already archived")
+	ErrIncorrectUuid     = errors.New("incorrect uuid format")
+	ErrVideoNotFound     = errors.New("video is not found")
+	ErrVideoIsProcessing = errors.New("video is being processed")
 )
 
 const (
@@ -33,6 +34,16 @@ type Video struct {
 	HLSReadyAt          *time.Time
 
 	ArchivedAt *time.Time
+}
+
+type VideoDTO struct {
+	ID           string
+	Filename     string
+	Slug         string
+	SizeBytes    int64
+	DurationS    sql.NullInt32
+	ConvertedUrl string
+	Status       string
 }
 
 type Pagination struct {
@@ -62,6 +73,22 @@ const (
 	FilterActive   ListFilter = "active"   // archived_at IS NULL
 	FilterArchived ListFilter = "archived" // archived_at IS NOT NULL
 )
+
+func (v Video) ToDto() VideoDTO {
+	return VideoDTO{
+		ID:           v.ID,
+		Filename:     v.Filename,
+		Slug:         v.Slug,
+		SizeBytes:    v.SizeBytes,
+		DurationS:    v.DurationS,
+		ConvertedUrl: "",
+		Status:       v.Status,
+	}
+}
+
+func (v Video) IsProcessing() bool {
+	return v.Status == string(StatusProcessing)
+}
 
 func (p *Pagination) Normalize() {
 	if p.Limit == 0 {
