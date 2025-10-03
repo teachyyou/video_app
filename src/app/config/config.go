@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -23,13 +24,28 @@ func (db DBConfig) DSN() string {
 	)
 }
 
+type HttpConfig struct {
+	PublicMediaUrl string
+}
+
 type DataConfig struct {
-	DataDir string
+	SlugLength int
+	DataDir    string
+	ArchiveDir string
+	RawDir     string
+}
+
+type ConversionConfig struct {
+	TmpDir   string
+	ConvDir  string
+	Parallel int
 }
 
 type Config struct {
 	DB   DBConfig
+	Http HttpConfig
 	Data DataConfig
+	Conv ConversionConfig
 }
 
 func Load() *Config {
@@ -42,7 +58,18 @@ func Load() *Config {
 			Name:     getEnv("DB_NAME", "name"),
 		},
 		Data: DataConfig{
-			DataDir: getEnv("DATA_DIR", "/test"),
+			SlugLength: getEnvAsInt("SLUG_LENGTH", 12),
+			DataDir:    getEnv("DATA_DIR", "/data"),
+			ArchiveDir: getEnv("ARCHIVE_DIR", "/data/archive"),
+			RawDir:     getEnv("RAW_DIR", "/data/raw"),
+		},
+		Conv: ConversionConfig{
+			TmpDir:   getEnv("TMP_DIR", "/data/tmp/work"),
+			ConvDir:  getEnv("CONV_DIR", "/data/converted"),
+			Parallel: getEnvAsInt("PARALLEL_MAX", 4),
+		},
+		Http: HttpConfig{
+			PublicMediaUrl: getEnv("PUBLIC_MEDIA_URL", ""),
 		},
 	}
 }
@@ -50,6 +77,15 @@ func Load() *Config {
 func getEnv(k, def string) string {
 	if v := os.Getenv(k); v != "" {
 		return v
+	}
+	return def
+}
+
+func getEnvAsInt(key string, def int) int {
+	if valStr, ok := os.LookupEnv(key); ok {
+		if val, err := strconv.Atoi(valStr); err == nil {
+			return val
+		}
 	}
 	return def
 }

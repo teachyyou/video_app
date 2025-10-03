@@ -9,14 +9,14 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - 5432:5432
+      - 5433:5432
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 5s
       retries: 5
-      start_period: 5s
+      start_period: 2s
       timeout: 3s
 
   backend:
@@ -24,21 +24,32 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file: [.env]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
     hostname: backend
     volumes:
-      - ./data:/app/data
-    ports:
-      - 8080:8080
+      - C:/Users/kudri/Videos/video_app/data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      DB_USER: $DB_USER
-      DB_PASSWORD: $DB_PASSWORD
-      DB_HOST: postgres
-      DB_PORT: $DB_PORT
-      DB_NAME: $DB_NAME
-      DATA_DIR: $DATA_DIR
+
+  web:
+    container_name: video_frontend
+    build:
+      context: C:\Users\kudri\WebstormProjects\video_front
+      dockerfile: Dockerfile
+    ports:
+      - "3000:8080"                 # откроется на http://localhost:5173
+    depends_on:
+      - backend
+
+
 
 volumes:
   db-data:
