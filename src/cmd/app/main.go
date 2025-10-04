@@ -1,6 +1,7 @@
 package main
 
 import (
+	"awesomeProject/src/app/cache"
 	"awesomeProject/src/app/config"
 	"awesomeProject/src/app/handler"
 	"awesomeProject/src/app/hls"
@@ -33,6 +34,7 @@ func main() {
 		handler.MediaModule,
 		config.Module,
 		config.DbModule,
+		cache.CacheModule,
 		hls.FFmpegPackagerModule,
 		service.VideoModule,
 		service.ConvServiceModule,

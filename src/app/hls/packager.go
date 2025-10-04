@@ -2,6 +2,7 @@ package hls
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,20 +33,25 @@ func (*FFmpegPackager) PackageHLS(ctx context.Context, inPath string, outDir str
 
 	args := []string{
 		"-y",
-		// GPU decode path
-		"-hwaccel", "cuda",
-		"-hwaccel_output_format", "cuda",
+
+		// CPU decode/encode (убрали CUDA/NVENC)
 		"-i", inPath,
 
-		// Видео на NVENC
-		"-c:v", "h264_nvenc",
-		"-preset", "p3", // p1 лучше качество, p7 быстрее
+		// Видео на CPU: libx264
+		"-c:v", "libx264",
+		"-preset", "slow", // можно: veryfast..placebo
+		"-profile:v", "high",
+		"-level:v", "4.1",
+		"-pix_fmt", "yuv420p",
+
+		// Битрейт/буфер как было
 		"-b:v", "5M",
 		"-maxrate", "5M",
 		"-bufsize", "10M",
+
+		// GOP + запрет сценкатов, чтобы сегменты были независимыми
 		"-g", gop,
-		"-keyint_min", gop,
-		"-sc_threshold", "0",
+		"-x264-params", fmt.Sprintf("keyint=%s:min-keyint=%s:scenecut=0:open_gop=0", gop, gop),
 
 		// Аудио
 		"-c:a", "aac",
@@ -69,7 +75,6 @@ func (*FFmpegPackager) PackageHLS(ctx context.Context, inPath string, outDir str
 	argsThumb := []string{
 		"-y",
 		"-i", inPath,
-
 		"-vf", "thumbnail,scale=-2:360",
 		"-frames:v", "1",
 		thumbPath,

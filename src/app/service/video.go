@@ -50,6 +50,7 @@ func (service *VideoService) GetVideo(ctx context.Context, id string) (*domain.V
 
 func (service *VideoService) UpdateVideoTitle(ctx context.Context, id string, title string) (*domain.Video, error) {
 	video, err := service.Repository.UpdateById(ctx, id, map[string]interface{}{"filename": title + ".mp4"})
+
 	return video, err
 }
 
@@ -189,6 +190,7 @@ func (service *VideoService) Archive(ctx context.Context, id string) error {
 		log.Println("error archiving the file: ", err)
 		return err
 	}
+
 	return nil
 }
 

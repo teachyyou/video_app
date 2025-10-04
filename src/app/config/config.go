@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -24,6 +25,11 @@ func (db DBConfig) DSN() string {
 	)
 }
 
+type CacheConfig struct {
+	DefaultExpiration time.Duration
+	DefaultFrequency  time.Duration
+}
+
 type HttpConfig struct {
 	PublicMediaUrl string
 }
@@ -42,10 +48,11 @@ type ConversionConfig struct {
 }
 
 type Config struct {
-	DB   DBConfig
-	Http HttpConfig
-	Data DataConfig
-	Conv ConversionConfig
+	DB    DBConfig
+	Http  HttpConfig
+	Data  DataConfig
+	Conv  ConversionConfig
+	Cache CacheConfig
 }
 
 func Load() *Config {
@@ -70,6 +77,10 @@ func Load() *Config {
 		},
 		Http: HttpConfig{
 			PublicMediaUrl: getEnv("PUBLIC_MEDIA_URL", ""),
+		},
+		Cache: CacheConfig{
+			DefaultExpiration: time.Duration(getEnvAsInt("DEFAULT_CACHE_EXPIRATION_SECS", 60)) * time.Second,
+			DefaultFrequency:  time.Duration(getEnvAsInt("DEFAULT_CACHE_CLEAN_FREQUENCY_SECS", 60)) * time.Second,
 		},
 	}
 }

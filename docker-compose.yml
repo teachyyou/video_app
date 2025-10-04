@@ -25,16 +25,16 @@ services:
       context: .
       dockerfile: Dockerfile
     env_file: [.env]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [ gpu ]
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: 1
+#              capabilities: [ gpu ]
     hostname: backend
     volumes:
-      - C:/Users/kudri/Videos/video_app/data:/app/data
+      - ${VOLUME_PATH}:${DATA_DIR}
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,7 +42,7 @@ services:
   web:
     container_name: video_frontend
     build:
-      context: C:\Users\kudri\WebstormProjects\video_front
+      context: ${FRONT_PROJECT_DIR}
       dockerfile: Dockerfile
     ports:
       - "3000:8080"                 # откроется на http://localhost:5173

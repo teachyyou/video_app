@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"awesomeProject/src/app/cache"
 	"awesomeProject/src/app/domain"
 	"context"
 	"errors"
@@ -13,12 +14,17 @@ import (
 )
 
 type VideoRepository struct {
+	Cache  *cache.VideoCache
 	DB     *gorm.DB
 	Logger *zap.Logger
 }
 
-func NewVideoRepository(db *gorm.DB, logger *zap.Logger) *VideoRepository {
-	return &VideoRepository{DB: db, Logger: logger}
+func NewVideoRepository(db *gorm.DB, logger *zap.Logger, cache *cache.VideoCache) *VideoRepository {
+	return &VideoRepository{
+		DB:     db,
+		Logger: logger,
+		Cache:  cache,
+	}
 }
 
 func (repo *VideoRepository) GetAll(ctx context.Context, pagination domain.Pagination, status domain.ListFilter) (domain.ListPayload[domain.Video], error) {
@@ -62,6 +68,9 @@ func (repo *VideoRepository) UpdateById(ctx context.Context, id string, updates 
 	if res.RowsAffected == 0 {
 		return nil, domain.ErrVideoNotFound
 	}
+
+	repo.Cache.Delete(id)
+
 	return &video, nil
 }
 
@@ -85,10 +94,10 @@ func (repo *VideoRepository) Insert(ctx context.Context, video *domain.Video) (s
 	return video.ID, nil
 }
 
-func (repo *VideoRepository) SetProcessing(ctx context.Context, slug string, time time.Time) error {
+func (repo *VideoRepository) SetProcessing(ctx context.Context, id string, time time.Time) error {
 	res := repo.DB.WithContext(ctx).
 		Model(&domain.Video{}).
-		Where("slug = ?", slug).
+		Where("id = ?", id).
 		Update("status", domain.StatusProcessing).
 		Update("processing_started_at", time)
 
@@ -98,10 +107,11 @@ func (repo *VideoRepository) SetProcessing(ctx context.Context, slug string, tim
 	if res.RowsAffected == 0 {
 		return domain.ErrVideoNotFound
 	}
+	repo.Cache.Delete(id)
 	return nil
 }
 
-func (repo *VideoRepository) SetReady(ctx context.Context, slug string, time time.Time) error {
+func (repo *VideoRepository) SetReady(ctx context.Context, id string, time time.Time) error {
 	updates := map[string]any{
 		"status":       string(domain.StatusComplete),
 		"hls_ready_at": time,
@@ -109,7 +119,7 @@ func (repo *VideoRepository) SetReady(ctx context.Context, slug string, time tim
 
 	res := repo.DB.WithContext(ctx).
 		Model(&domain.Video{}).
-		Where("slug = ?", slug).
+		Where("id = ?", id).
 		Updates(updates)
 
 	if res.Error != nil {
@@ -118,10 +128,11 @@ func (repo *VideoRepository) SetReady(ctx context.Context, slug string, time tim
 	if res.RowsAffected == 0 {
 		return domain.ErrVideoNotFound
 	}
+	repo.Cache.Delete(id)
 	return nil
 }
 
-func (repo *VideoRepository) SetInterrupted(ctx context.Context, slug string, reason error) error {
+func (repo *VideoRepository) SetInterrupted(ctx context.Context, id string, reason error) error {
 	updates := map[string]any{
 		"status":         string(domain.StatusInterrupted),
 		"failure_reason": reason.Error(),
@@ -130,7 +141,7 @@ func (repo *VideoRepository) SetInterrupted(ctx context.Context, slug string, re
 
 	res := repo.DB.WithContext(ctx).
 		Model(&domain.Video{}).
-		Where("slug = ?", slug).
+		Where("id = ?", id).
 		Updates(updates)
 
 	if res.Error != nil {
@@ -139,21 +150,30 @@ func (repo *VideoRepository) SetInterrupted(ctx context.Context, slug string, re
 	if res.RowsAffected == 0 {
 		return domain.ErrVideoNotFound
 	}
+	repo.Cache.Delete(id)
 	return nil
 }
 
 func (repo *VideoRepository) GetById(ctx context.Context, id string) (*domain.Video, error) {
-	var video domain.Video
 
+	if cachedVideo, ok := repo.Cache.Get(id); ok {
+		repo.Logger.Info("got video from cache", zap.String("slug", cachedVideo.Slug))
+		return cachedVideo, nil
+	}
+
+	var video domain.Video
 	if err := repo.DB.WithContext(ctx).First(&video, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrVideoNotFound
 		}
-
+		repo.Cache.Delete(id)
 		return nil, err
 	}
+	repo.Cache.Set(id, &video, 0)
+	repo.Logger.Info("added video to cache", zap.String("slug", video.Slug))
 
 	return &video, nil
+
 }
 
 func (repo *VideoRepository) Archive(ctx context.Context, id string) error {
@@ -165,7 +185,7 @@ func (repo *VideoRepository) Archive(ctx context.Context, id string) error {
 		}
 		return err
 	}
-
+	repo.Cache.Delete(id)
 	return nil
 }
 
