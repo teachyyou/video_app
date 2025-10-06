@@ -2,7 +2,6 @@ package hls
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,7 +9,6 @@ import (
 	"go.uber.org/fx"
 )
 
-// Низкоуровневая конвертация
 type Packager interface {
 	PackageHLS(ctx context.Context, inPath string, outDir string) error
 }
@@ -27,38 +25,28 @@ func (*FFmpegPackager) PackageHLS(ctx context.Context, inPath string, outDir str
 		return err
 	}
 
-	// Параметры — подправь под свой материал
-	segmentDur := "6" // секунды
-	gop := "360"      // если ~8 fps*6 = 48; для 30fps ставь 180, для 25fps — 150 и т.п.
+	segmentDur := "6"
+	gop := "360"
 
 	args := []string{
 		"-y",
-
-		// CPU decode/encode (убрали CUDA/NVENC)
+		"-hwaccel", "cuda",
+		"-hwaccel_output_format", "cuda",
 		"-i", inPath,
 
-		// Видео на CPU: libx264
-		"-c:v", "libx264",
-		"-preset", "slow", // можно: veryfast..placebo
-		"-profile:v", "high",
-		"-level:v", "4.1",
-		"-pix_fmt", "yuv420p",
-
-		// Битрейт/буфер как было
+		"-c:v", "h264_nvenc",
+		"-preset", "p3",
 		"-b:v", "5M",
 		"-maxrate", "5M",
 		"-bufsize", "10M",
-
-		// GOP + запрет сценкатов, чтобы сегменты были независимыми
 		"-g", gop,
-		"-x264-params", fmt.Sprintf("keyint=%s:min-keyint=%s:scenecut=0:open_gop=0", gop, gop),
+		"-keyint_min", gop,
+		"-sc_threshold", "0",
 
-		// Аудио
 		"-c:a", "aac",
 		"-ac", "2",
 		"-b:a", "128k",
 
-		// HLS
 		"-hls_time", segmentDur,
 		"-hls_list_size", "0",
 		"-hls_playlist_type", "vod",
@@ -75,6 +63,7 @@ func (*FFmpegPackager) PackageHLS(ctx context.Context, inPath string, outDir str
 	argsThumb := []string{
 		"-y",
 		"-i", inPath,
+
 		"-vf", "thumbnail,scale=-2:360",
 		"-frames:v", "1",
 		thumbPath,

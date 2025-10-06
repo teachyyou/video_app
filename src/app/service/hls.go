@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Верхнеуровневая конвертация
 type Converter interface {
 	Start(ctx context.Context)
 	Enqueue(slug string)
@@ -122,7 +121,6 @@ func (svc *ConversionService) handleJob(ctx context.Context, slug string) error 
 		_ = svc.repo.SetInterrupted(ctx, video.ID, err)
 		return err
 	}
-	// опционально подчистим корень tmp для этого slug
 
 	if err := svc.repo.SetReady(ctx, video.ID, time.Now()); err != nil {
 		return err
