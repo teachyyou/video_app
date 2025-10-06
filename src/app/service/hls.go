@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Верхнеуровневая конвертация
 type Converter interface {
 	Start(ctx context.Context)
 	Enqueue(slug string)
@@ -85,7 +84,7 @@ func (svc *ConversionService) handleJob(ctx context.Context, slug string) error 
 	}
 	defer os.RemoveAll(filepath.Join(svc.config.Conv.TmpDir, slug))
 
-	if err := svc.repo.SetProcessing(ctx, slug, time.Now()); err != nil {
+	if err := svc.repo.SetProcessing(ctx, video.ID, time.Now()); err != nil {
 		return err
 	}
 
@@ -96,12 +95,12 @@ func (svc *ConversionService) handleJob(ctx context.Context, slug string) error 
 
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		svc.log.Error("create output dir failed", zap.Error(err), zap.String("slug", slug))
-		_ = svc.repo.SetInterrupted(ctx, slug, err)
+		_ = svc.repo.SetInterrupted(ctx, video.ID, err)
 		return err
 	}
 	if err := svc.packager.PackageHLS(ctx, inPath, outDir); err != nil {
 		svc.log.Error("packaging failed", zap.Error(err), zap.String("slug", slug))
-		_ = svc.repo.SetInterrupted(ctx, slug, err)
+		_ = svc.repo.SetInterrupted(ctx, video.ID, err)
 		return err
 	}
 
@@ -109,7 +108,7 @@ func (svc *ConversionService) handleJob(ctx context.Context, slug string) error 
 
 	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
 		svc.log.Error("make final parent dir failed", zap.Error(err), zap.String("slug", slug))
-		_ = svc.repo.SetInterrupted(ctx, slug, err)
+		_ = svc.repo.SetInterrupted(ctx, video.ID, err)
 		return err
 	}
 	if err := util.MoveDir(outDir, destPath); err != nil {
@@ -119,12 +118,11 @@ func (svc *ConversionService) handleJob(ctx context.Context, slug string) error 
 			zap.String("to", destPath),
 			zap.String("slug", slug),
 		)
-		_ = svc.repo.SetInterrupted(ctx, slug, err)
+		_ = svc.repo.SetInterrupted(ctx, video.ID, err)
 		return err
 	}
-	// опционально подчистим корень tmp для этого slug
 
-	if err := svc.repo.SetReady(ctx, slug, time.Now()); err != nil {
+	if err := svc.repo.SetReady(ctx, video.ID, time.Now()); err != nil {
 		return err
 	}
 	svc.log.Info("converting succeeded for video", zap.String("slug", slug))

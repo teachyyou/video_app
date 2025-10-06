@@ -50,6 +50,7 @@ func (service *VideoService) GetVideo(ctx context.Context, id string) (*domain.V
 
 func (service *VideoService) UpdateVideoTitle(ctx context.Context, id string, title string) (*domain.Video, error) {
 	video, err := service.Repository.UpdateById(ctx, id, map[string]interface{}{"filename": title + ".mp4"})
+
 	return video, err
 }
 
@@ -64,13 +65,11 @@ func (service *VideoService) Save(ctx context.Context, header *multipart.FileHea
 	datePath := time.Now().Format("2006/01/02")
 	dirPath := filepath.Join(service.Config.Data.RawDir, datePath, slug)
 
-	//Нужно создать директорию под видос, если такой ещё нет
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		log.Println("error creating directories", err)
 		return "", err
 	}
 
-	//slug будет названием директории, а сам файл назовем source.mp4
 	destPath := filepath.Join(dirPath, "source.mp4")
 
 	file, err := header.Open()
@@ -154,7 +153,6 @@ func (service *VideoService) Archive(ctx context.Context, id string) error {
 	defer originalFile.Close()
 
 	//Кладем в archive/slug
-
 	ext := strings.ToLower(filepath.Ext(video.Filename))
 	newName := video.Slug + ext
 	newPath := filepath.Join(service.Config.Data.ArchiveDir, newName)
@@ -189,6 +187,7 @@ func (service *VideoService) Archive(ctx context.Context, id string) error {
 		log.Println("error archiving the file: ", err)
 		return err
 	}
+
 	return nil
 }
 

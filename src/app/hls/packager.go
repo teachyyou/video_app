@@ -9,7 +9,6 @@ import (
 	"go.uber.org/fx"
 )
 
-// Низкоуровневая конвертация
 type Packager interface {
 	PackageHLS(ctx context.Context, inPath string, outDir string) error
 }
@@ -26,20 +25,17 @@ func (*FFmpegPackager) PackageHLS(ctx context.Context, inPath string, outDir str
 		return err
 	}
 
-	// Параметры — подправь под свой материал
-	segmentDur := "6" // секунды
-	gop := "360"      // если ~8 fps*6 = 48; для 30fps ставь 180, для 25fps — 150 и т.п.
+	segmentDur := "6"
+	gop := "360"
 
 	args := []string{
 		"-y",
-		// GPU decode path
 		"-hwaccel", "cuda",
 		"-hwaccel_output_format", "cuda",
 		"-i", inPath,
 
-		// Видео на NVENC
 		"-c:v", "h264_nvenc",
-		"-preset", "p3", // p1 лучше качество, p7 быстрее
+		"-preset", "p3",
 		"-b:v", "5M",
 		"-maxrate", "5M",
 		"-bufsize", "10M",
@@ -47,12 +43,10 @@ func (*FFmpegPackager) PackageHLS(ctx context.Context, inPath string, outDir str
 		"-keyint_min", gop,
 		"-sc_threshold", "0",
 
-		// Аудио
 		"-c:a", "aac",
 		"-ac", "2",
 		"-b:a", "128k",
 
-		// HLS
 		"-hls_time", segmentDur,
 		"-hls_list_size", "0",
 		"-hls_playlist_type", "vod",
